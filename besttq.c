@@ -19,7 +19,7 @@
 #define MAX_DEVICES 4
 #define MAX_DEVICE_NAME 20
 #define MAX_PROCESSES 50
-#define MAX_PROCESS_EVENTS 1000
+#define MAX_EVENTS_PER_PROCESS 100
 
 #define TIME_CONTEXT_SWITCH 5
 #define TIME_ACQUIRE_BUS 5
@@ -32,10 +32,59 @@
 int optimal_time_quantum = 0;
 int total_process_completion_time = 0;
 
+/* TraceFile Sample
+device    usb2[Device Name]      60000000 [Transfer Rate] bytes/sec
+device    kb         10 bytes/sec
+device    ssd        240000000 bytes/sec
+device    hd         80000000 bytes/sec
+device    wifi       6750000 bytes/sec
+device    screen     200000 bytes/sec
+reboot
+
+process  1  200 [Process Start] {
+  i/o      100 [Event Start]     hd      1600 [transfer_size]
+  i/o      110     usb2    1600
+  i/o      180     hd      1000
+  i/o      190     usb2    1000
+  exit     400 [Process End]
+}
+process  2  480 {
+  i/o      8000    screen  40
+  exit     8005
+}
+*/
+//Parse File Device Details Storage
+char *device_names[MAX_DEVICE_NAME];
+int transfer_rates[MAX_DEVICE_NAME];
+int no_of_devices = 0; // this is also the index of current device being parsed
+
+//Pase File Process Details Storage
+int process_start[MAX_PROCESSES];
+int process_end[MAX_PROCESSES];
+int no_of_process = 0;
+
+//Parse File Events Detail Storage
+int event_start[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
+char *event_device[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
+int transfer_size[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
+int no_of_events[MAX_PROCESSES];
+
 //  ----------------------------------------------------------------------
 
 #define CHAR_COMMENT '#'
 #define MAXWORD 20
+#define HR "\n----------------------------------------------------------------------\n"
+
+void print_device_details(int index)
+{
+    printf("Device No: %3d | Device Name: %20s | Transfer Rate: %10d Bytes/Second \n",
+           index, device_names[index], transfer_rates[index]);
+}
+void print_event_details(int process_index, int event_index)
+{
+    printf("Event Start: %10d | Device Name: %20s | Transfer Rate: %10d Bytes/Second \n",
+           event_index, event_device[process_index][event_index], transfer_size[process_index][event_index]);
+}
 
 void parse_tracefile(char program[], char tracefile[])
 {
@@ -49,7 +98,7 @@ void parse_tracefile(char program[], char tracefile[])
     }
 
     char line[BUFSIZ];
-    int lc = 0;
+    int lc = 0; //LINE Counter
 
     //  READ EACH LINE FROM THE TRACEFILE, UNTIL WE REACH THE END-OF-FILE
     while (fgets(line, sizeof line, fp) != NULL)
@@ -76,32 +125,49 @@ void parse_tracefile(char program[], char tracefile[])
         //  LOOK FOR LINES DEFINING DEVICES, PROCESSES, AND PROCESS EVENTS
         if (nwords == 4 && strcmp(word0, "device") == 0)
         {
-            ; // FOUND A DEVICE DEFINITION, WE'LL NEED TO STORE THIS SOMEWHERE
+            device_names[no_of_devices] = word1;
+            transfer_rates[no_of_devices] = atoi(word2);
+
+            print_device_details(no_of_devices);
+
+            no_of_devices++;
+            // FOUND A DEVICE DEFINITION, WE'LL NEED TO STORE THIS SOMEWHERE
         }
 
         else if (nwords == 1 && strcmp(word0, "reboot") == 0)
         {
-            ; // NOTHING REALLY REQUIRED, DEVICE DEFINITIONS HAVE FINISHED
+            printf("Total Devices: %d \n", no_of_devices); // NOTHING REALLY REQUIRED, DEVICE DEFINITIONS HAVE FINISHED
         }
 
         else if (nwords == 4 && strcmp(word0, "process") == 0)
         {
-            ; // FOUND THE START OF A PROCESS'S EVENTS, STORE THIS SOMEWHERE
+            process_start[no_of_process] = atoi(word2);
+
+            printf(HR);
+            printf("Start Process No %2d: %d \n", no_of_process, process_start[no_of_process]); // FOUND THE START OF A PROCESS'S EVENTS, STORE THIS SOMEWHERE
         }
 
         else if (nwords == 4 && strcmp(word0, "i/o") == 0)
         {
-            ; //  AN I/O EVENT FOR THE CURRENT PROCESS, STORE THIS SOMEWHERE
+            event_start[no_of_process][no_of_events[no_of_process]] = atoi(word1);
+            event_device[no_of_process][no_of_events[no_of_process]] = word2;
+            transfer_size[no_of_process][no_of_events[no_of_process]] = atoi(word3);
+
+            print_event_details(no_of_process, no_of_events[no_of_process]);
+            no_of_events[no_of_process]++;
+            //  AN I/O EVENT FOR THE CURRENT PROCESS, STORE THIS SOMEWHERE
         }
 
         else if (nwords == 2 && strcmp(word0, "exit") == 0)
         {
-            ; //  PRESUMABLY THE LAST EVENT WE'LL SEE FOR THE CURRENT PROCESS
+            process_end[no_of_process] = atoi(word1);
+            printf("End: %d \n", process_end[no_of_process]); //  PRESUMABLY THE LAST EVENT WE'LL SEE FOR THE CURRENT PROCESS
         }
 
         else if (nwords == 1 && strcmp(word0, "}") == 0)
         {
-            ; //  JUST THE END OF THE CURRENT PROCESS'S EVENTS
+            no_of_process++;
+            //  JUST THE END OF THE CURRENT PROCESS'S EVENTS
         }
         else
         {
