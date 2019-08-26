@@ -68,6 +68,7 @@ int event_start[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 char *event_device[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 int transfer_size[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 int no_of_events[MAX_PROCESSES];
+int IO_runtime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; //in usec
 
 //  ----------------------------------------------------------------------
 
@@ -82,7 +83,7 @@ void print_device_details(int index)
 }
 void print_event_details(int process_index, int event_index)
 {
-    printf("Event Start: %10d | Device Name: %20s | Transfer Rate: %10d Bytes/Second \n",
+    printf("Event Start: %10d | Device Name: %20s | Transfer Size: %10d  \n",
            event_index, event_device[process_index][event_index], transfer_size[process_index][event_index]);
 }
 
@@ -152,6 +153,15 @@ void parse_tracefile(char program[], char tracefile[])
             event_start[no_of_process][no_of_events[no_of_process]] = atoi(word1);
             event_device[no_of_process][no_of_events[no_of_process]] = word2;
             transfer_size[no_of_process][no_of_events[no_of_process]] = atoi(word3);
+            /* 
+            TODO : 
+                runtime is in usec
+                MATH: runtime = (transfer_size/transfer_rate) * 10^6
+                runtime = (transfer_size/GetTransferRate(event_device)) * 10^6
+                IO_runtime[no_of_process][no_of_events[no_of_process]] = runtime;
+
+
+            */
 
             print_event_details(no_of_process, no_of_events[no_of_process]);
             no_of_events[no_of_process]++;
@@ -184,9 +194,20 @@ void parse_tracefile(char program[], char tracefile[])
 
 //  ----------------------------------------------------------------------
 
+int RunForTQ(int TQ, int process_index)
+{
+
+    return 0;
+}
+
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
+    int process_queue[MAX_PROCESSES];
+    int device_io_queue[MAX_EVENTS_PER_PROCESS];
+    int system_time = 0;
+
+    // TODO Simulations
     printf("running simulate_job_mix( time_quantum = %i usecs )\n",
            time_quantum);
 }
