@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 /* CITS2002 Project 1 2019
    Name(s):             Frinze Lapuz, Thye Shan Ng
@@ -55,8 +56,10 @@ process  2  480 {
 */
 //Parse File Device Details Storage
 char *device_names[MAX_DEVICE_NAME];
+char *device_check[MAX_DEVICE_NAME];
 int transfer_rates[MAX_DEVICE_NAME];
 int no_of_devices = 0; // this is also the index of current device being parsed
+int pointer_amount = 0;
 
 //Pase File Process Details Storage
 int process_start[MAX_PROCESSES];
@@ -76,6 +79,42 @@ int IO_runtime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; //in usec
 #define MAXWORD 20
 #define HR "\n----------------------------------------------------------------------\n"
 
+//Calculations-----------------------------------------------------------
+//CALCULATES THE AMOUNT OF TIME TAKEN (USEC) FOR FILE TRANSFER
+/*void runtime(int process_index, int event_index)
+{
+    int trans_rate;
+    int i;
+    float total;
+    for (i = 0; i< MAX_DEVICE_NAME; i++)
+    {
+        if (strcmp(device_check[i],event_device[process_index][event_index]) == 0)
+        {
+            trans_rate = transfer_rates[i];
+        }
+    }
+    printf("%s \n",event_device[process_index][event_index]);
+    total = transfer_size[no_of_process][no_of_events[no_of_process]] / trans_rate * pow(10, 6);
+    printf("%f \n", total);
+} */
+
+//----------------------------------------------------------------------
+
+/*int getDeviceTransferRate (char device_name[]){
+    int index = -1;
+    //FIND INDEX OF DEVICE NAME
+
+    for(int i = 0; i<no_of_devices; i++){
+        //COMPARE device name selected to list
+        if(strcm)
+    }
+
+    //INDEX -1 -> NOT FOUND DEVICE
+    if(index==-1){
+        printf("ERROR: DEVICE NOT FOUND IN THE LIST")
+    }
+    return transfer_rates[index];
+}*/
 void print_device_details(int index)
 {
     printf("Device No: %3d | Device Name: %20s | Transfer Rate: %10d Bytes/Second \n",
@@ -128,9 +167,10 @@ void parse_tracefile(char program[], char tracefile[])
         {
             device_names[no_of_devices] = word1;
             transfer_rates[no_of_devices] = atoi(word2);
-
+            device_check[pointer_amount] = word1;
+            pointer_amount++;
             print_device_details(no_of_devices);
-
+            
             no_of_devices++;
             // FOUND A DEVICE DEFINITION, WE'LL NEED TO STORE THIS SOMEWHERE
         }
@@ -153,6 +193,14 @@ void parse_tracefile(char program[], char tracefile[])
             event_start[no_of_process][no_of_events[no_of_process]] = atoi(word1);
             event_device[no_of_process][no_of_events[no_of_process]] = word2;
             transfer_size[no_of_process][no_of_events[no_of_process]] = atoi(word3);
+            int i;
+            for (i=0;i<no_of_devices; i++)
+            {
+                
+                print_device_details(i);
+            }
+            //runtime(no_of_process,no_of_events[no_of_process]);
+            //IO_runtime[no_of_process][no_of_events[no_of_process]] = runtime();
             /* 
             TODO : 
                 runtime is in usec
@@ -203,9 +251,9 @@ int RunForTQ(int TQ, int process_index)
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
-    int process_queue[MAX_PROCESSES];
+/*    int process_queue[MAX_PROCESSES];
     int device_io_queue[MAX_EVENTS_PER_PROCESS];
-    int system_time = 0;
+    int system_time = 0;*/
 
     // TODO Simulations
     printf("running simulate_job_mix( time_quantum = %i usecs )\n",
