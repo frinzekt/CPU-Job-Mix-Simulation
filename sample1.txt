@@ -2,8 +2,6 @@ device    usb2       60000000 bytes/sec
 device    kb         10 bytes/sec
 device    ssd        240000000 bytes/sec
 device    hd         80000000 bytes/sec
-device    wifi       6750000 bytes/sec
-device    screen     200000 bytes/sec
 reboot
 process  1  200 {
   i/o      100     hd      1600
@@ -13,6 +11,6 @@ process  1  200 {
   exit     400
 }
 process  2  480 {
-  i/o      8000    screen  40
+  i/o      8000    usb2    40
   exit     8005
 }

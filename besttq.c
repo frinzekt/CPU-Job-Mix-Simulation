@@ -55,7 +55,7 @@ process  2  480 {
 }
 */
 //Parse File Device Details Storage
-char device_names[MAX_DEVICE_NAME][MAX_DEVICE_NAME];
+char device_names[MAX_DEVICES][MAX_DEVICE_NAME];
 int transfer_rates[MAX_DEVICE_NAME];
 int no_of_devices = 0; // this is also the index of current device being parsed
 
@@ -63,6 +63,8 @@ int no_of_devices = 0; // this is also the index of current device being parsed
 int process_start[MAX_PROCESSES];
 int process_end[MAX_PROCESSES];
 int no_of_process = 0;
+
+int process_remaining_runtime[MAX_PROCESSES];
 
 //Parse File Events Detail Storage
 int event_start[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
@@ -77,16 +79,14 @@ int IO_runtime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; //in usec
 #define MAXWORD 20
 #define HR "\n----------------------------------------------------------------------\n"
 
-//Calculations-----------------------------------------------------------
-//CALCULATES THE AMOUNT OF TIME TAKEN (USEC) FOR FILE TRANSFER
-/*void runtime(int process_index, int event_index)
+int runtime(int process_index, int event_index, int transfer_rate)
 {
-    int trans_rate;
-    int i;
-    float total;
-    total = transfer_size[no_of_process][no_of_events[no_of_process]] / trans_rate * pow(10, 6);
-    printf("%f \n", total);
-}*/
+    //CALCULATES THE AMOUNT OF TIME TAKEN (USEC) FOR FILE TRANSFER
+
+    int total;
+    total = transfer_size[process_index][event_index] * pow(10, 6) / transfer_rate;
+    return total;
+}
 
 //----------------------------------------------------------------------
 
@@ -114,8 +114,9 @@ void print_device_details(int index)
 }
 void print_event_details(int process_index, int event_index)
 {
-    printf("Event Start: %10d | Device Name: %20s | Transfer Size: %10d  \n",
-           event_index, event_device[process_index][event_index], transfer_size[process_index][event_index]);
+    printf("Event Start: %10d | Device Name: %20s | Transfer Size: %10d | Runtime IO: %5d usec \n",
+           event_index, event_device[process_index][event_index], transfer_size[process_index][event_index],
+           IO_runtime[process_index][event_index]);
 }
 
 void parse_tracefile(char program[], char tracefile[])
@@ -187,17 +188,11 @@ void parse_tracefile(char program[], char tracefile[])
             strcpy(event_device[no_of_process][process_index_of_event], word2);
             transfer_size[no_of_process][process_index_of_event] = atoi(word3);
 
-            // runtime(no_of_process, no_of_events[no_of_process]);
-            //IO_runtime[no_of_process][no_of_events[no_of_process]] = runtime();
-            /* 
-            TODO : 
-                runtime is in usec
-                MATH: runtime = (transfer_size/transfer_rate) * 10^6
-                runtime = (transfer_size/GetTransferRate(event_device)) * 10^6
-                IO_runtime[no_of_process][no_of_events[no_of_process]] = runtime;
+            int transfer_rate;
+            transfer_rate = getDeviceTransferRate(event_device[no_of_process][process_index_of_event]);
 
-
-            */
+            IO_runtime[no_of_process][no_of_events[no_of_process]] =
+                runtime(no_of_process, no_of_events[no_of_process], transfer_rate);
 
             print_event_details(no_of_process, no_of_events[no_of_process]);
             no_of_events[no_of_process]++;
@@ -207,6 +202,7 @@ void parse_tracefile(char program[], char tracefile[])
         else if (nwords == 2 && strcmp(word0, "exit") == 0)
         {
             process_end[no_of_process] = atoi(word1);
+            process_remaining_runtime[no_of_process] = process_end[no_of_process];
             printf("End: %d \n", process_end[no_of_process]); //  PRESUMABLY THE LAST EVENT WE'LL SEE FOR THE CURRENT PROCESS
         }
 
@@ -230,15 +226,24 @@ void parse_tracefile(char program[], char tracefile[])
 
 //  ----------------------------------------------------------------------
 
-int RunForTQ(int TQ, int process_index)
+int RunProcessForTQ(int TQ, int process_index)
 {
+    //RUN process until process is done or TQ expires
+    //Returns the time consumed to run process
 
-    return 0;
+    if (process_remaining_runtime[process_index] >= TQ)
+    {
+        return process_remaining_runtime[process_index];
+    }
+
+    return TQ;
 }
 
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
+    int system_clock = 0;
+
     /*    int process_queue[MAX_PROCESSES];
     int device_io_queue[MAX_EVENTS_PER_PROCESS];
     int system_time = 0;*/
@@ -246,6 +251,36 @@ void simulate_job_mix(int time_quantum)
     // TODO Simulations
     printf("running simulate_job_mix( time_quantum = %i usecs )\n",
            time_quantum);
+
+    //CHECK REMAINING TIME OF ALL PROCESSES
+    //RUNS THE CODE UNTIL ALL IS BROKEN
+    while (1)
+    {
+        int max_remaining_time = 0;
+        int current_running_process_index = 0;
+        for (int i = 0; i < no_of_process; i++) //CHECKS ALL REMAINING TIME OF LOOP
+        {
+            if (process_remaining_runtime[i] > max_remaining_time)
+            {
+                max_remaining_time = process_remaining_runtime[i];
+            }
+        }
+        if (max_remaining_time == 0)
+        { //BREAKS OUT OF THE LOOP IF EVERYTHING IS DONE
+            break;
+        }
+        else
+        {
+            //DO STUFF HERE PROCESSING AND STUFF
+        }
+    }
+
+    //DETERMINING IF THIS IS THE BEST TQ
+    total_process_completion_time = max(total_process_completion_time, system_clock);
+    if (total_process_completion_time == system_clock)
+    {
+        optimal_time_quantum = time_quantum
+    }
 }
 
 //  ----------------------------------------------------------------------
