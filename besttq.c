@@ -62,6 +62,7 @@ int no_of_devices = 0; // this is also the index of current device being parsed
 //Pase File Process Details Storage
 int process_start[MAX_PROCESSES];
 int process_end[MAX_PROCESSES];
+int process_rank[MAX_PROCESSES];
 int no_of_process = 0;
 
 int process_remaining_runtime[MAX_PROCESSES];
@@ -79,6 +80,7 @@ int IO_runtime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; //in usec
 #define MAXWORD 20
 #define HR "\n----------------------------------------------------------------------\n"
 
+//----------------------------------------------------------------------
 int runtime(int process_index, int event_index, int transfer_rate)
 {
     //CALCULATES THE AMOUNT OF TIME TAKEN (USEC) FOR FILE TRANSFER
@@ -88,7 +90,25 @@ int runtime(int process_index, int event_index, int transfer_rate)
     return total;
 }
 
-//----------------------------------------------------------------------
+int sort_process(void)
+{
+    //SORTS PROCESSES ACCORDINGLY BY THEIR STARTING TIME
+
+    int time = 0;
+    int process_no;
+    int i;
+    for (i=0; i<MAX_PROCESSES; i++)
+    {
+        for (j=i)
+        if (process_start[i] > time)
+        {
+            time = process_start[i];
+            process_start[i] = 0
+            process_no = i;
+        }
+    }
+    
+}
 
 int getDeviceTransferRate(char device_name[])
 {
@@ -104,7 +124,7 @@ int getDeviceTransferRate(char device_name[])
         }
     }
 
-    printf("ERROR: DEVICE NOT FOUND");
+    printf("ERROR: DEVICE NOT FOUND\n");
     return -1;
 }
 void print_device_details(int index)
@@ -242,6 +262,7 @@ int RunProcessForTQ(int TQ, int process_index)
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
+    sort_process();
     int system_clock = 0;
 
     /*    int process_queue[MAX_PROCESSES];
@@ -254,10 +275,11 @@ void simulate_job_mix(int time_quantum)
 
     //CHECK REMAINING TIME OF ALL PROCESSES
     //RUNS THE CODE UNTIL ALL IS BROKEN
+    /*
     while (1)
     {
         int max_remaining_time = 0;
-        int current_running_process_index = 0;
+        //int current_running_process_index = 0;
         for (int i = 0; i < no_of_process; i++) //CHECKS ALL REMAINING TIME OF LOOP
         {
             if (process_remaining_runtime[i] > max_remaining_time)
@@ -273,13 +295,13 @@ void simulate_job_mix(int time_quantum)
         {
             //DO STUFF HERE PROCESSING AND STUFF
         }
-    }
+    }*/
 
     //DETERMINING IF THIS IS THE BEST TQ
-    total_process_completion_time = max(total_process_completion_time, system_clock);
+    total_process_completion_time = fmax(total_process_completion_time, system_clock);
     if (total_process_completion_time == system_clock)
     {
-        optimal_time_quantum = time_quantum
+        optimal_time_quantum = time_quantum;
     }
 }
 
