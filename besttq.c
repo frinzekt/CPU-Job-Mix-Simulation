@@ -13,6 +13,8 @@
 
 //  Compile with:  cc -std=c99 -Wall -Werror -o besttq besttq.c
 
+#define __max(a, b) (((a) > (b)) ? (a) : (b))
+
 //  THESE CONSTANTS DEFINE THE MAXIMUM SIZE OF TRACEFILE CONTENTS (AND HENCE
 //  JOB-MIX) THAT YOUR PROGRAM NEEDS TO SUPPORT.  YOU'LL REQUIRE THESE
 //  CONSTANTS WHEN DEFINING THE MAXIMUM SIZES OF ANY REQUIRED DATA STRUCTURES.
@@ -61,6 +63,7 @@ int no_of_devices = 0; // this is also the index of current device being parsed
 
 //Pase File Process Details Storage
 int process_start[MAX_PROCESSES];
+int process_name[MAX_PROCESSES];
 int process_end[MAX_PROCESSES];
 int process_rank[MAX_PROCESSES];
 int no_of_process = 0;
@@ -73,6 +76,14 @@ char event_device[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS][MAX_DEVICE_NAME];
 int transfer_size[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 int no_of_events[MAX_PROCESSES];
 int IO_runtime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; //in usec
+
+// Program Flow
+int system_clock = 0;
+int process_entered_RQ = 0;
+int nexit = 0;
+int no_of_RQelements = 0;
+int RQ[MAX_PROCESSES]; //holds the processes in ready queue
+int running = 0;       //holds the process in running state
 
 //  ----------------------------------------------------------------------
 
@@ -90,24 +101,46 @@ int runtime(int process_index, int event_index, int transfer_rate)
     return total;
 }
 
-int sort_process(void)
+void sort_process(void)
 {
     //SORTS PROCESSES ACCORDINGLY BY THEIR STARTING TIME
+    int length = 4; //no_of_process;
+    int rank = length;
+    int max = -1;
+    int process_dup[] = {300, 200, 50, 600};
 
-    int time = 0;
-    int process_no;
-    int i;
-    for (i=0; i<MAX_PROCESSES; i++)
+    /*for (int i = 0; i < length; i++)
     {
-        for (j=i)
-        if (process_start[i] > time)
+        process_dup[i] = process_start[i];
+    }*/
+    for (int i = 0; i < length; i++)
+    {
+        int temp;
+        for (int j = 0; j < length; j++)
         {
-            time = process_start[i];
-            process_start[i] = 0
-            process_no = i;
+            if (process_dup[i] > max)
+            {
+                max = process_dup[i];
+                temp = j;
+            }
         }
+        process_dup[temp] = -1;
+
+        for (int j = 0; j < length; j++)
+        {
+            if (process_start[i] == max)
+            {
+                process_rank[i] = rank;
+                rank--;
+                break;
+            }
+        }
+        max = -1;
     }
-    
+    for (int i = 0; i < length; i++)
+    {
+        printf("______%i\n", process_rank[i]);
+    }
 }
 
 int getDeviceTransferRate(char device_name[])
@@ -194,6 +227,7 @@ void parse_tracefile(char program[], char tracefile[])
 
         else if (nwords == 4 && strcmp(word0, "process") == 0)
         {
+            process_name[no_of_process] = atoi(word1);
             process_start[no_of_process] = atoi(word2);
 
             printf(HR);
@@ -248,14 +282,20 @@ void parse_tracefile(char program[], char tracefile[])
 
 int RunProcessForTQ(int TQ, int process_index)
 {
+    running = process_index;
     //RUN process until process is done or TQ expires
     //Returns the time consumed to run process
 
-    if (process_remaining_runtime[process_index] >= TQ)
+    if (process_remaining_runtime[process_index] < TQ)
     {
         return process_remaining_runtime[process_index];
     }
 
+    //ADDITIONAL: FIND Processes to put in RQ
+    // BY THE RANGE OF THE SYSTEM CLOCK + CYLCLING
+
+    //PUTS BACK THE PROCESS IN RUNNING QUEUE by putting it on the first zero
+    //RQ[firstZero()] = process_index;
     return TQ;
 }
 
@@ -263,7 +303,13 @@ int RunProcessForTQ(int TQ, int process_index)
 void simulate_job_mix(int time_quantum)
 {
     sort_process();
-    int system_clock = 0;
+
+    system_clock = 0;
+    process_entered_RQ = 0; //is also used as the index of the process to be transferred to TQ
+    nexit = 0;              //number of processes exited
+    no_of_RQelements = 0;
+    running = 0;
+    memset(RQ, 0, sizeof(RQ)); // RESETS ITEM IN THE RQ FOR NEXT JOB MIX
 
     /*    int process_queue[MAX_PROCESSES];
     int device_io_queue[MAX_EVENTS_PER_PROCESS];
@@ -273,32 +319,32 @@ void simulate_job_mix(int time_quantum)
     printf("running simulate_job_mix( time_quantum = %i usecs )\n",
            time_quantum);
 
-    //CHECK REMAINING TIME OF ALL PROCESSES
-    //RUNS THE CODE UNTIL ALL IS BROKEN
-    /*
-    while (1)
-    {
-        int max_remaining_time = 0;
-        //int current_running_process_index = 0;
-        for (int i = 0; i < no_of_process; i++) //CHECKS ALL REMAINING TIME OF LOOP
-        {
-            if (process_remaining_runtime[i] > max_remaining_time)
-            {
-                max_remaining_time = process_remaining_runtime[i];
-            }
-        }
-        if (max_remaining_time == 0)
-        { //BREAKS OUT OF THE LOOP IF EVERYTHING IS DONE
-            break;
-        }
-        else
-        {
-            //DO STUFF HERE PROCESSING AND STUFF
-        }
-    }*/
+    //First Starting Process
+    //[System Clock] = [First Starting Process]
+    /* system_clock = process_start[process_rank[process_entered_RQ]];
+    printf("Process P# NEW->READY\n ");
+    RQ[0] = process_rank[process_entered_RQ];
+    
+    process_entered_RQ++;
+    do
+    { //LOOP UNTIL ALL PROCESS COMPLETE 
+        
+        printf("Process P# READY->RUN\n ");
+        
 
+        if(no_of_RQelements!=0){ //SWITCH PROCESS BECAUSE SOMEONE IS WAITING
+        system_clock += TIME_CONTEXT_SWITCH;
+        system_clock += RunProcessForTQ(time_quantum, popArray())
+        }
+        else{ // NO OTHER PROCESS IS RUNNING so keep running
+        system_clock += RunProcessForTQ(time_quantum, running)
+        }
+
+
+    } while (nexit < no_of_process);
+*/
     //DETERMINING IF THIS IS THE BEST TQ
-    total_process_completion_time = fmax(total_process_completion_time, system_clock);
+    total_process_completion_time = __max(total_process_completion_time, system_clock);
     if (total_process_completion_time == system_clock)
     {
         optimal_time_quantum = time_quantum;
