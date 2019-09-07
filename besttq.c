@@ -96,51 +96,49 @@ int runtime(int process_index, int event_index, int transfer_rate)
 {
     //CALCULATES THE AMOUNT OF TIME TAKEN (USEC) FOR FILE TRANSFER
 
-    int total;
+    float total;
     total = transfer_size[process_index][event_index] * pow(10, 6) / transfer_rate;
-    return total;
+    return round(total);
 }
 
 void sort_process(void)
 {
-    //SORTS PROCESSES ACCORDINGLY BY THEIR STARTING TIME
-    int length = 4; //no_of_process;
+    //RANKS PROCESSES ACCORDINGLY BY THEIR STARTING TIME
+
+    int length = no_of_process;
     int rank = length;
     int max = -1;
-    int process_dup[] = {300, 200, 50, 600};
+    int process_dup[length];;
+    int temp;
 
-    /*for (int i = 0; i < length; i++)
-    {
-        process_dup[i] = process_start[i];
-    }*/
     for (int i = 0; i < length; i++)
     {
-        int temp;
+        process_dup[i] = process_start[i];
+    }
+    
+    for (int i = 0; i < length; i++)
+    {
         for (int j = 0; j < length; j++)
         {
-            if (process_dup[i] > max)
+            if (process_dup[j] > max)
             {
-                max = process_dup[i];
+                max = process_dup[j];
                 temp = j;
             }
         }
-        process_dup[temp] = -1;
 
         for (int j = 0; j < length; j++)
         {
-            if (process_start[i] == max)
+            if (process_dup[j] == max)
             {
-                process_rank[i] = rank;
+                process_rank[j] = rank;
                 rank--;
-                break;
             }
         }
         max = -1;
+        process_dup[temp] = -1;
     }
-    for (int i = 0; i < length; i++)
-    {
-        printf("______%i\n", process_rank[i]);
-    }
+
 }
 
 int getDeviceTransferRate(char device_name[])
