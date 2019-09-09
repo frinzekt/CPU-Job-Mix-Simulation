@@ -71,6 +71,7 @@ int process_rank[MAX_PROCESSES];
 int no_of_process = 0;
 
 int process_remaining_runtime[MAX_PROCESSES];
+int process_running_time[MAX_PROCESSES];
 
 //Parse File Events Detail Storage
 int event_start[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
@@ -100,7 +101,7 @@ int runtime(int process_index, int event_index, int transfer_rate)
 
     float total;
     total = transfer_size[process_index][event_index] * pow(10, 6) / transfer_rate;
-    return (int)total;
+    return (int)roundf(total);
 }
 
 void sort_process(void)
@@ -111,7 +112,6 @@ void sort_process(void)
     int rank = length;
     int max = -1;
     int process_dup[MAX_PROCESSES];
-    ;
     int temp;
 
     for (int i = 0; i < length; i++)
@@ -329,12 +329,40 @@ void parse_tracefile(char program[], char tracefile[])
 
 void seekNextProcess()
 {
+    //FINDS THE NEXT PROCESS TO BE PUT IN READY QUEUE (SKIPPING METHOD)
     system_clock = process_start[getProcessIndexByName(process_rank[process_entered_RQ])];
     RQ[0] = process_rank[process_entered_RQ];
-    printf("SC: %10d Process P%i NEW->READY (SKIP)\n", system_clock, RQ[0]);
+    printf("SC: %10d  nexit=%3d Process P%i NEW->READY (SKIP)\n", system_clock, nexit, RQ[0]);
 
     process_entered_RQ++;
     no_of_RQelements++;
+}
+void seekNextReadyProcess(int start, int expectedTimeConsume)
+{
+    //FIND PROCESSES TO GO TO RQ IN STARTING AND ENDING TIME
+
+    //FIND PROCESSES THAT WILL GO TO RUNNING QUEUE BEFORE RUNNING PROCESS END
+    //process_start[getProcessIndexByName(process_rank[process_entered_RQ])]
+    //-> Finds the start process of the next process in the rank(by name)
+    //-> The rank will yield the name of the process
+
+    while ((start + expectedTimeConsume >= process_start[getProcessIndexByName(process_rank[process_entered_RQ])]) && (process_entered_RQ < no_of_process))
+    {
+        printf("SC: %10d  nexit=%3d Process P%i NEW->READY\n", process_start[getProcessIndexByName(process_rank[process_entered_RQ])],
+               nexit, process_rank[process_entered_RQ]);
+        RQ[firstZeroRQ()] = process_rank[process_entered_RQ];
+        process_entered_RQ++;
+        no_of_RQelements++;
+    }
+}
+int seekNextIO(int start, int expectedTimeConsume, int process_index)
+{
+    //Finds IO in time range of process
+    //returns Time Consumed Before IO STARTS
+    //returns -1 if there is no IO
+    int event_count = no_of_events[no_of_process];
+
+    for (int i = 0; i)
 }
 int RunProcessForTQ(int TQ, int process_name)
 {
@@ -358,43 +386,33 @@ int RunProcessForTQ(int TQ, int process_name)
     {
         timeConsumed = TQ;
     }
+    //Finds NextIO To run if any
+    int timeBeforeIOStarts = seekNextIO(process_running_time[process_index], timeConsumed, process_index);
 
-    //FIND PROCESSES THAT WILL GO TO RUNNING QUEUE BEFORE RUNNING PROCESS END
-    //process_start[getProcessIndexByName(process_rank[process_entered_RQ])]
-    //-> Finds the start process of the next process in the rank(by name)
-    //-> The rank will yield the name of the process
-    /* printf("________%i\n", process_entered_RQ);
-    printf("________%i\n", process_rank[process_entered_RQ]);
-    printf("________%i\n", getProcessIndexByName(process_rank[process_entered_RQ]));*/
-    while ((system_clock + timeConsumed >= process_start[getProcessIndexByName(process_rank[process_entered_RQ])]) && (process_entered_RQ < no_of_process))
-    {
-        printf("SC: %10d Process P%i NEW->READY\n", process_start[getProcessIndexByName(process_rank[process_entered_RQ])],
-               process_rank[process_entered_RQ]);
-        RQ[firstZeroRQ()] = process_rank[process_entered_RQ];
-        process_entered_RQ++;
-        no_of_RQelements++;
+    if (timeBeforeIOStarts != -1)
+    { // THERE IS A IO TO BE RUN
+        timeConsumed = timeBeforeIOStarts;
     }
 
-    //ADDITIONAL: FIND Processes to put in RQ
-    // BY THE RANGE OF THE SYSTEM CLOCK + CYLCLING
+    //Finds Processes that can be put in RQ Before Process Ends
+    seekNextReadyProcess(system_clock, timeConsumed);
 
-    //PUTS BACK THE PROCESS IN RUNNING QUEUE by putting it on the first zero
-    //RQ[firstZero()] = process_index;
-
+    //Exiting or Not Exiting Processes
     if (DidExit)
     {
         //EXITED PROCESS COUNTER
-        printf("SC: %10d Process P%i RUNNING -> EXIT\n", system_clock + timeConsumed, running);
-        running = 0; //INDICATOR THAT PROCESS EXITED
         nexit++;
+        printf("SC: %10d  nexit=%3d Process P%i RUNNING -> EXIT\n", system_clock + timeConsumed, nexit, running);
+        running = 0; //INDICATOR THAT PROCESS EXITED
     }
     else
     {
         //Process Not Exitting will go back To Queue
-        printf("SC: %10d Process P%i RUNNING -> READY\n", system_clock + timeConsumed, running);
+        printf("SC: %10d  nexit=%3d Process P%i RUNNING -> READY\n", system_clock + timeConsumed, nexit, running);
         no_of_RQelements++;
         RQ[firstZeroRQ()] = running;
     }
+    process_running_time[process_index] += timeConsumed;
     process_remaining_runtime[process_index] -= timeConsumed;
     return timeConsumed;
 }
@@ -433,19 +451,19 @@ void simulate_job_mix(int time_quantum)
         {
             //SWITCH PROCESS BECAUSE SOMEONE IS WAITING
             system_clock += TIME_CONTEXT_SWITCH;
-            printf("SC: %10d Process P%i READY->RUNNING\n", system_clock, RQ[0]);
+            printf("SC: %10d  nexit=%3d Process P%i READY->RUNNING\n", system_clock, nexit, RQ[0]);
             no_of_RQelements--;
             system_clock += RunProcessForTQ(time_quantum, popArrayRQ());
         }
         else if (RQ[0] == 0)
         {
             // NO PROCESS IN READY QUEUE FIND NEXT ONE
-            printf("SC: %10d NO OTHER PROCESS READY TO RUN\n", system_clock);
+            printf("SC: %10d  nexit=%3d NO OTHER PROCESS READY TO RUN\n", system_clock, nexit);
 
             //SEEK NEXT PROCESS TO RUN
             seekNextProcess();
             system_clock += TIME_CONTEXT_SWITCH;
-            printf("SC: %10d Process P%i READY->RUNNING\n", system_clock, RQ[0]);
+            printf("SC: %10d  nexit=%3d Process P%i READY->RUNNING\n", system_clock, nexit, RQ[0]);
             no_of_RQelements--;
             system_clock += RunProcessForTQ(time_quantum, popArrayRQ());
         }
@@ -453,7 +471,7 @@ void simulate_job_mix(int time_quantum)
         {
 
             // NO OTHER PROCESS IS RUNNING so keep running
-            printf("SC: %10d Process P%i CONTINUE RUNNING\n", system_clock, running);
+            printf("SC: %10d  nexit=%3d Process P%i CONTINUE RUNNING\n", system_clock, nexit, running);
             system_clock += RunProcessForTQ(time_quantum, popArrayRQ());
         }
     } while (nexit < no_of_process); //FIXME
