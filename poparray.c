@@ -1,30 +1,29 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int myarr[10] = {1,4,2};
+int RQ[10] = {1, 4, 2};
 
-int popArray()
+int popArrayRQ()
 {
-    int popped = myarr[0];
+    int popped = RQ[0];
     int i = 0;
-    while (myarr[i] != 0)
+    while (RQ[i] != 0)
     {
-        myarr[i] = myarr[i + 1];
+        RQ[i] = RQ[i + 1];
         i++;
     }
     return popped;
 }
 
-int firstZero()
+int firstZeroRQ()
 {
     int i = 0;
-    while (myarr[i] != 0)
+    while (RQ[i] != 0)
     {
         i++;
     }
     return i;
 }
-
 
 int main(int argc, char *argv[])
 {
