@@ -104,13 +104,22 @@ int IO_entered_BQ[MAX_PROCESSES];
 #define HR "\n----------------------------------------------------------------------\n"
 
 //----------------------------------------------------------------------
+int myceil(double x)
+{ //besttq.c:(.text+0x73): undefined reference to `ceil'
+    //Alternative to ceil
+    int whole = x;
+    double decimal = x - whole;
+    int add = (decimal > 0) ? 1 : 0;
+
+    return whole + add;
+}
 int runtime(int process_index, int event_index, int transfer_rate)
 {
     //CALCULATES THE AMOUNT OF TIME TAKEN (USEC) FOR FILE TRANSFER
 
     float total;
     total = transfer_size[process_index][event_index] * pow(10, 6) / transfer_rate;
-    return (int)total;
+    return myceil(total);
 }
 
 void sort_process(void)
@@ -431,7 +440,11 @@ void delBQFirst(int time)
         BQ_RemainingTime[i] = BQ_RemainingTime[i + 1];
         i++;
     }
-    BQ_RemainingTime[0] += TIME_ACQUIRE_BUS; //CHANGE OF BUS OWNER
+
+    if (BQ_Pindex[0] != 0) //CHANGE OF BUS OWNER
+    {
+        BQ_RemainingTime[0] += TIME_ACQUIRE_BUS;
+    }
     no_of_BQelements--;
 }
 void print_BQ()
@@ -497,8 +510,8 @@ void SubtractTimeInBQ(int time)
     }
     else
     {
-        printf("-----TIME ADJUSTER DETECTED---\n");
-        BQ_RemainingTime[0] -= time - TIME_ACQUIRE_BUS;
+        printf("-----TIME ADJUSTER DETECTED %i---\n", time);
+        BQ_RemainingTime[0] -= time;
         print_BQ();
         printf("------------------------------\n");
     }
@@ -584,9 +597,9 @@ void insertIOtoBQ(int process_index, int event_index)
                     insertToBQ(i, process_index, event_index, runtime);
                     break;
                 }
-                else if (InsertDevicePriority < iDevicePriority)
-                { // LOWER DEVICE PRIORITY -> PUT IN THE POSITION AFTERWARDS
-                    insertToBQ(i + 1, process_index, event_index, runtime);
+                else if (InsertDevicePriority <= iDevicePriority)
+                { // LOWER DEVICE PRIORITY -> FIND WHERE IT IS
+                    //insertToBQ(i + 1, process_index, event_index, runtime);
                     break;
                 }
                 else
@@ -613,16 +626,18 @@ int seekNextIO(int start, int expectedTimeConsume, int process_index)
     int event_count = no_of_events[process_index];
     int IO_start = event_start[process_index][IO_entered_BQ[process_index]];
     //IF the Expected Ending Time is more than the IO Event Starting (then it will start)
-    /* printf("------%i\n", start);
+    /*printf("------%i\n", start);
     printf("------%i\n", expectedTimeConsume);
     printf("------%i\n", IO_start);
     printf("------%i\n", event_count);*/
     if ((start + expectedTimeConsume >= IO_start) && (IO_entered_BQ[process_index] < event_count))
     {
+        int expected_system_clock = system_clock + IO_start - start;
         insertIOtoBQ(process_index, IO_entered_BQ[process_index]);
-        printf("SC: %10d  nexit=%3d Process P%i-%i REQUEST DATA BUS\n", system_clock + IO_start - start, nexit, running, IO_entered_BQ[process_index]);
+        printf("SC: %10d  nexit=%3d Process P%i-%i REQUEST DATA BUS\n", expected_system_clock, nexit, running, IO_entered_BQ[process_index]);
         print_BQ();
         IO_entered_BQ[process_index]++; //NEXT IO TO BE FOUND
+        printf("IO_STAAART - STAAART:%i\n\n", IO_start - start);
         return IO_start - start;
     }
     else
@@ -639,6 +654,7 @@ int RunProcessForTQ(int TQ, int process_name)
     int timeConsumed = 0;
     bool DidExit = false;
     bool DidBlocked = false;
+    //bool ImmediateBlocked = false;
 
     //RUN process until process is done or TQ expires
     //Returns the time consumed to run process
@@ -658,12 +674,19 @@ int RunProcessForTQ(int TQ, int process_name)
 
     if (timeBeforeIOStarts != -1)
     { // THERE IS A IO TO BE RUN
-        timeConsumed = timeBeforeIOStarts + TIME_ACQUIRE_BUS;
+        timeConsumed = timeBeforeIOStarts;
         DidBlocked = true;
 
         if (no_of_BQelements == 1)
         { // FIRST ELEMENT NEEDS TO ADJUST TIME
-            time_adjuster = timeBeforeIOStarts + TIME_ACQUIRE_BUS;
+            time_adjuster = timeConsumed;
+        }
+        time_adjuster += TIME_ACQUIRE_BUS;
+        if (timeConsumed == 0) //ADD TIME ACQUIRE
+        {
+            printf("DOUBLEL TIME ADJUSTER %i\n", timeConsumed);
+            //time_adjuster = TIME_ACQUIRE_BUS;
+            //ImmediateBlocked = true;
         }
     }
 
@@ -674,8 +697,6 @@ int RunProcessForTQ(int TQ, int process_name)
     if (DidBlocked) //FIXME
     {               //Record Process Index and Event Index
         printf("SC: %10d  nexit=%3d Process P%i RUNNING->BLOCKED\n-----------\n", system_clock + timeConsumed, nexit, running);
-        //no_of_RQelements++;
-        //RQ[firstZeroRQ()] = running;
     }
     else if (DidExit)
     {
