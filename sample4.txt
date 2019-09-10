@@ -1,0 +1,16 @@
+# two processes, one computes and performs I/O, which the other just computes 
+# try with:
+#            besttq-sample filenm 100 500 50
+#
+device	floppy	30000 bytes/sec
+#
+reboot
+#
+process 2 200 {
+	exit	1800
+}
+#
+process 5 280 {
+	i/o	220	floppy	2100
+	exit	1400
+}
