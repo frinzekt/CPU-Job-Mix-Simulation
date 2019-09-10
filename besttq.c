@@ -83,12 +83,13 @@ int no_of_events[MAX_PROCESSES];
 int IO_runtime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; //in usec
 
 // Program Flow
+bool skip_IO_wait;
 int system_clock = 0;
 int process_entered_RQ = 0;
 int nexit = 0;
 int no_of_RQelements = 0;
 int RQ[MAX_PROCESSES]; //holds the processes in ready queue
-int running = 0;       //holds the process in running state
+int running = -1;      //holds the process in running state
 
 int BQ_Pindex[MAX_BLOCKED_PROCESSES];
 int BQ_Eindex[MAX_BLOCKED_PROCESSES];
@@ -418,7 +419,11 @@ void delBQFirst(int time)
 {
     //Deletes the first element and shifts all other element one move to the left
     int i = 0;
-    printf("SC: %10d  nexit=%3d Process P%i IO FINISHED\n-----------\n", system_clock + time, nexit, BQ_Pindex[0] - 1);
+    int name = process_name[BQ_Pindex[0] - 1];
+
+    printf("SC: %10d  nexit=%3d Process P%i-%i IO FINISHED\n-----------\n", system_clock + time, nexit, name, BQ_Eindex[0]);
+    printf("SC: %10d  nexit=%3d Process P%i BLOCKED->READY (IO)\n", system_clock, nexit, name);
+    RQ[firstZeroRQ()] = name;
     while (BQ_Pindex[i] != 0)
     {
         BQ_Pindex[i] = BQ_Pindex[i + 1];
@@ -426,6 +431,7 @@ void delBQFirst(int time)
         BQ_RemainingTime[i] = BQ_RemainingTime[i + 1];
         i++;
     }
+    BQ_RemainingTime[0] += TIME_ACQUIRE_BUS; //CHANGE OF BUS OWNER
     no_of_BQelements--;
 }
 void print_BQ()
@@ -454,7 +460,6 @@ void print_BQ()
 }
 void SubtractTimeInBQ(int time)
 { //SUBTRACTS TIME FROM THE FIRST ELEMENT
-    print_BQ();
     if (time >= 0)
     {
         //IF FIRST ELEMENT IS BELOW THE TIME, SUBTRACT THE NEXT
@@ -477,10 +482,11 @@ void SubtractTimeInBQ(int time)
                     //CANNOT CARRYOVER IF NO_OF_BQELEMENTS = 0
                     time -= BQ_RemainingTime[0];
                     delBQFirst(BQ_RemainingTime[0]);
-                }
+                } /*
                 printf("-------TIME SUBTRACT----------\n");
                 print_BQ();
                 printf("------------------------------\n");
+                print_RQ();*/
             }
             else
             {
@@ -492,7 +498,7 @@ void SubtractTimeInBQ(int time)
     else
     {
         printf("-----TIME ADJUSTER DETECTED---\n");
-        BQ_RemainingTime[0] -= time;
+        BQ_RemainingTime[0] -= time - TIME_ACQUIRE_BUS;
         print_BQ();
         printf("------------------------------\n");
     }
@@ -668,8 +674,8 @@ int RunProcessForTQ(int TQ, int process_name)
     if (DidBlocked) //FIXME
     {               //Record Process Index and Event Index
         printf("SC: %10d  nexit=%3d Process P%i RUNNING->BLOCKED\n-----------\n", system_clock + timeConsumed, nexit, running);
-        no_of_RQelements++;
-        RQ[firstZeroRQ()] = running;
+        //no_of_RQelements++;
+        //RQ[firstZeroRQ()] = running;
     }
     else if (DidExit)
     {
@@ -712,11 +718,12 @@ void simulate_job_mix(int time_quantum)
     printf("]\n");
 
     //Initialization of Global Variables
+    skip_IO_wait = false;
     system_clock = 0;
     process_entered_RQ = 0; //is also used as the index of the process to be transferred to TQ
     nexit = 0;              //number of processes exited
     no_of_RQelements = 0;
-    running = 0;
+    running = -1;
     memset(RQ, 0, sizeof(RQ)); // RESETS ITEM IN THE RQ FOR NEXT JOB MIX
 
     // TODO Simulations
@@ -727,11 +734,12 @@ void simulate_job_mix(int time_quantum)
     //[System Clock] = [First Starting Process]
     seekNextProcess();
     int starting_time = system_clock;
+    running = -1;
 
     do
     { //LOOP UNTIL ALL PROCESS COMPLETE
         //  print_RQ();
-        if ((running != RQ[0]))
+        if ((running != RQ[0]) && ((running == -1) || (RQ[0] != 0)))
         {
             //SWITCH PROCESS BECAUSE SOMEONE IS WAITING
 
@@ -743,14 +751,26 @@ void simulate_job_mix(int time_quantum)
         else if (RQ[0] == 0) //FIXME
         {
             // NO PROCESS IN READY QUEUE FIND NEXT ONE
-            printf("SC: %10d  nexit=%3d NO OTHER PROCESS READY TO RUN\n", system_clock, nexit);
+            if (!skip_IO_wait)
+            {
+                printf("SC: %10d  nexit=%3d NO OTHER PROCESS READY TO RUN\n", system_clock, nexit);
+            }
 
             //SEEK NEXT PROCESS TO RUN
-            seekNextProcess();
-            system_clock_tick(TIME_CONTEXT_SWITCH);
-            printf("SC: %10d  nexit=%3d Process P%i READY->RUNNING\n", system_clock, nexit, RQ[0]);
-            no_of_RQelements--;
-            system_clock_tick(RunProcessForTQ(time_quantum, popArrayRQ()));
+            if (process_entered_RQ < no_of_process)
+            {
+                seekNextProcess();
+                system_clock_tick(TIME_CONTEXT_SWITCH);
+                printf("SC: %10d  nexit=%3d Process P%i READY->RUNNING\n", system_clock, nexit, RQ[0]);
+                no_of_RQelements--;
+                system_clock_tick(RunProcessForTQ(time_quantum, popArrayRQ()));
+            }
+            else
+            { // IO TICKER IS NEEDED
+                running = 0;
+                skip_IO_wait = true;
+                system_clock_tick(1);
+            }
         }
         else
         {
