@@ -203,11 +203,11 @@ void createDevicePriority()
     }
     qsort(device_rate_dup, sizeof(device_rate_dup) / sizeof(int), sizeof(int), comp);
 
-    //PRINT FIXME
+    /* Device Priority Printer
     for (int i = 0; i < MAX_DEVICES; i++)
     {
         printf("DEVICE__%i\n", device_rate_dup[i]);
-    }
+    }*/
 
     //CREATE RANK ORDER
     for (int i = 0; i < no_of_devices; i++)
@@ -252,6 +252,7 @@ int firstZeroRQ()
 int getProcessIndexByName(int name)
 {
     //FINDS THE PROCESS Index By Process Name
+    printf("\nPROCESSNAME: %i\n", name);
     for (int i = 0; i < no_of_process; i++)
     {
         if (name == process_name[i])
@@ -260,6 +261,7 @@ int getProcessIndexByName(int name)
         }
     }
 
+    printf("\n\n ERROR Process Name: %i not found\n\n", name);
     return -1;
 }
 
@@ -316,6 +318,26 @@ void print_RQ()
     }
     printf("]    \n");
 }
+
+void print_process_execution_order(void)
+{
+    printf("Process Execution Order: [");
+    for (int i = 0; i < no_of_process; i++)
+    {
+        printf("%i, ", process_rank[i]);
+    }
+    printf("]\n");
+}
+void print_device_priority(void)
+{
+    printf("Device Priority: [");
+    for (int i = 0; i < no_of_devices; i++)
+    {
+        printf("%i, ", devicePriority[i]);
+    }
+    printf("]\n");
+}
+
 void parse_tracefile(char program[], char tracefile[])
 {
     //  ATTEMPT TO OPEN OUR TRACEFILE, REPORTING AN ERROR IF WE CAN'T
@@ -523,7 +545,7 @@ void system_clock_tick(int time)
     SubtractTimeInBQ(time);
 }
 
-void seekNextProcess()
+void seekNextProcess(void)
 {
     //FINDS THE NEXT PROCESS TO BE PUT IN READY QUEUE (SKIPPING METHOD)
     int deviation = process_start[getProcessIndexByName(process_rank[process_entered_RQ])] - system_clock;
@@ -542,17 +564,20 @@ void seekNextReadyProcess(int start, int expectedTimeConsume)
     //process_start[getProcessIndexByName(process_rank[process_entered_RQ])]
     //-> Finds the start process of the next process in the rank(by name)
     //-> The rank will yield the name of the process
-    int process_index = getProcessIndexByName(process_rank[process_entered_RQ]);
-
-    while ((start + expectedTimeConsume >= process_start[process_index]) && (process_entered_RQ < no_of_process))
+    if (process_entered_RQ < no_of_process) //INDEX CHECKER
     {
-        process_index = getProcessIndexByName(process_rank[process_entered_RQ]);
+        int process_index = getProcessIndexByName(process_rank[process_entered_RQ]);
 
-        printf("SC: %10d  nexit=%3d Process P%i NEW->READY\n", process_start[getProcessIndexByName(process_rank[process_entered_RQ])],
-               nexit, process_rank[process_entered_RQ]);
-        RQ[firstZeroRQ()] = process_rank[process_entered_RQ];
-        process_entered_RQ++;
-        no_of_RQelements++;
+        while ((start + expectedTimeConsume >= process_start[process_index]) && (process_entered_RQ < no_of_process))
+        {
+            process_index = getProcessIndexByName(process_rank[process_entered_RQ]);
+
+            printf("SC: %10d  nexit=%3d Process P%i NEW->READY\n", process_start[getProcessIndexByName(process_rank[process_entered_RQ])],
+                   nexit, process_rank[process_entered_RQ]);
+            RQ[firstZeroRQ()] = process_rank[process_entered_RQ];
+            process_entered_RQ++;
+            no_of_RQelements++;
+        }
     }
 }
 
@@ -563,6 +588,7 @@ int getPriorityDevice(int device_index)
 
 void insertToBQ(int position, int process_index, int event_index, int remaining_time)
 {
+    printf("INSERTING TO BQ: PI:%2i EI:%2i remaining_time:%i\n", process_index, event_index, remaining_time);
     //Insert Values to Blocked BQ on specific position
     for (int i = no_of_BQelements - 1; i >= position; i--)
     { //MOVE ITEMS TO THE RIGHT
@@ -580,18 +606,23 @@ void insertIOtoBQ(int process_index, int event_index)
     int runtime = IO_runtime[process_index][event_index];
     int InsertDeviceIndex = getDeviceIndex(event_device[process_index][event_index]);
     int InsertDevicePriority = getPriorityDevice(InsertDeviceIndex);
+    printf("INSERTING TO BQ: PI:%2i EI:%2i\n", process_index, event_index);
+
     if (no_of_BQelements == 0)
     {
         insertToBQ(0, process_index, event_index, runtime);
     }
     else
     {
-        for (int i = 0; i < no_of_BQelements; i++)
+        for (int i = 0; i <= no_of_BQelements; i++)
         {
+            printf("InsertPrio:%i \n\n", InsertDevicePriority);
+
             if (BQ_Pindex[i] != 0) // VALID INDEX
             {
                 int iDeviceIndex = getDeviceIndex(event_device[BQ_Pindex[i] - 1][BQ_Eindex[i]]); //DEVICE INDEX OF i'th element
                 int iDevicePriority = getPriorityDevice(iDeviceIndex);
+                printf("InsertPrio:%i CurrentPrio:%i \n\n", InsertDevicePriority, iDevicePriority);
                 if (InsertDevicePriority > iDevicePriority) //HIGHER DEVICE PRIORITY
                 {                                           // THE PRIORITY OF INSERTING DEVICE IS HIGHER
                     insertToBQ(i, process_index, event_index, runtime);
@@ -600,7 +631,7 @@ void insertIOtoBQ(int process_index, int event_index)
                 else if (InsertDevicePriority <= iDevicePriority)
                 { // LOWER DEVICE PRIORITY -> FIND WHERE IT IS
                     //insertToBQ(i + 1, process_index, event_index, runtime);
-                    break;
+                    continue;
                 }
                 else
                 {             //EQUAL
@@ -616,6 +647,7 @@ void insertIOtoBQ(int process_index, int event_index)
     }
 
     no_of_BQelements++;
+    print_BQ();
 }
 
 int seekNextIO(int start, int expectedTimeConsume, int process_index)
@@ -632,6 +664,7 @@ int seekNextIO(int start, int expectedTimeConsume, int process_index)
     printf("------%i\n", event_count);*/
     if ((start + expectedTimeConsume >= IO_start) && (IO_entered_BQ[process_index] < event_count))
     {
+        printf("INSERTING TO BQ: PI:%2i\n", process_index);
         int expected_system_clock = system_clock + IO_start - start;
         insertIOtoBQ(process_index, IO_entered_BQ[process_index]);
         printf("SC: %10d  nexit=%3d Process P%i-%i REQUEST DATA BUS\n", expected_system_clock, nexit, running, IO_entered_BQ[process_index]);
@@ -670,6 +703,7 @@ int RunProcessForTQ(int TQ, int process_name)
         timeConsumed = TQ;
     }
     //Finds NextIO To run if any
+    printf("INSERTING TO BQ: PI:%2i \n", process_index);
     int timeBeforeIOStarts = seekNextIO(process_running_time[process_index], timeConsumed, process_index);
 
     if (timeBeforeIOStarts != -1)
@@ -679,9 +713,9 @@ int RunProcessForTQ(int TQ, int process_name)
 
         if (no_of_BQelements == 1)
         { // FIRST ELEMENT NEEDS TO ADJUST TIME
-            time_adjuster = timeConsumed;
+            time_adjuster = timeConsumed + TIME_ACQUIRE_BUS;
         }
-        time_adjuster += TIME_ACQUIRE_BUS;
+
         if (timeConsumed == 0) //ADD TIME ACQUIRE
         {
             printf("DOUBLEL TIME ADJUSTER %i\n", timeConsumed);
@@ -723,28 +757,28 @@ int RunProcessForTQ(int TQ, int process_name)
 void simulate_job_mix(int time_quantum)
 {
 
-    printf("Process Execution Order: [");
-    for (int i = 0; i < no_of_process; i++)
-    {
-        printf("%i, ", process_rank[i]);
-    }
-    printf("]\n");
-
-    createDevicePriority();
-    printf("Device Priority: [");
-    for (int i = 0; i < no_of_devices; i++)
-    {
-        printf("%i, ", devicePriority[i]);
-    }
-    printf("]\n");
-
-    //Initialization of Global Variables
+    //Initialization and Rest of of Global Variables
     skip_IO_wait = false;
     system_clock = 0;
     process_entered_RQ = 0; //is also used as the index of the process to be transferred to TQ
     nexit = 0;              //number of processes exited
     no_of_RQelements = 0;
     running = -1;
+    /*
+    bool skip_IO_wait;
+int system_clock = 0;
+int process_entered_RQ = 0;
+int nexit = 0;
+int no_of_RQelements = 0;
+int RQ[MAX_PROCESSES]; //holds the processes in ready queue
+int running = -1;      //holds the process in running state
+
+int BQ_Pindex[MAX_BLOCKED_PROCESSES];
+int BQ_Eindex[MAX_BLOCKED_PROCESSES];
+int BQ_RemainingTime[MAX_BLOCKED_PROCESSES];
+int no_of_BQelements = 0;
+int IO_entered_BQ[MAX_PROCESSES];
+    */
     memset(RQ, 0, sizeof(RQ)); // RESETS ITEM IN THE RQ FOR NEXT JOB MIX
 
     // TODO Simulations
@@ -861,13 +895,16 @@ int main(int argcount, char *argvalue[])
     //THE ORDER OF PROCESS IS DETERMINED BY THE STARTING TIME OF PROCESS
     sort_process();
 
+    //Create Device Priority Array based on Transfer Rate
+    createDevicePriority();
+
+    print_process_execution_order();
+    print_device_priority();
+
     //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, VARYING THE TIME-QUANTUM EACH TIME.
     //  WE NEED TO FIND THE BEST (SHORTEST) TOTAL-PROCESS-COMPLETION-TIME
     //  ACROSS EACH OF THE TIME-QUANTA BEING CONSIDERED
-
-    // FIXME Run only one time for easy comparison
-    //for (int time_quantum = TQ0; time_quantum <= TQfinal; time_quantum += TQinc)
-    for (int time_quantum = TQ0; time_quantum <= TQ0; time_quantum += TQinc)
+    for (int time_quantum = TQ0; time_quantum <= TQfinal; time_quantum += TQinc)
     {
         simulate_job_mix(time_quantum);
     }
