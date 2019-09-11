@@ -174,7 +174,7 @@ void sort_process(void)
     }
 }
 
-int comp(const void *elem1, const void *elem2)
+int sort_comp(const void *elem1, const void *elem2)
 {
 
     int f = *((int *)elem1);
@@ -199,15 +199,8 @@ void createDevicePriority()
     for (int i = 0; i < MAX_DEVICES; i++)
     {
         device_rate_dup[i] = transfer_rates[i];
-        printf("DEVICE__%i\n", device_rate_dup[i]);
     }
-    qsort(device_rate_dup, sizeof(device_rate_dup) / sizeof(int), sizeof(int), comp);
-
-    /* Device Priority Printer
-    for (int i = 0; i < MAX_DEVICES; i++)
-    {
-        printf("DEVICE__%i\n", device_rate_dup[i]);
-    }*/
+    qsort(device_rate_dup, sizeof(device_rate_dup) / sizeof(int), sizeof(int), sort_comp);
 
     //CREATE RANK ORDER
     for (int i = 0; i < no_of_devices; i++)
@@ -223,30 +216,6 @@ void createDevicePriority()
             }
         }
     }
-}
-int popArrayRQ()
-{
-    //Returns the first element and shifts all other element one move to the left
-    int popped = RQ[0];
-
-    int i = 0;
-    while (RQ[i] != 0)
-    {
-        RQ[i] = RQ[i + 1];
-        i++;
-    }
-    return popped;
-}
-
-int firstZeroRQ()
-{
-    //Finds the Index of the first zero in RQ
-    int i = 0;
-    while (RQ[i] != 0)
-    {
-        i++;
-    }
-    return i;
 }
 
 int getProcessIndexByName(int name)
@@ -445,6 +414,31 @@ void parse_tracefile(char program[], char tracefile[])
 #undef CHAR_COMMENT
 
 //  ----------------------------------------------------------------------
+
+int popArrayInt(int arr[])
+{
+    //Returns the first element and shifts all other element one move to the left
+    int popped = arr[0];
+
+    int i = 0;
+    while (arr[i] != 0)
+    {
+        arr[i] = arr[i + 1];
+        i++;
+    }
+    return popped;
+}
+
+int firstZeroRQ()
+{
+    //Finds the Index of the first zero in RQ
+    int i = 0;
+    while (RQ[i] != 0)
+    {
+        i++;
+    }
+    return i;
+}
 
 void delBQFirst(int time)
 {
@@ -801,7 +795,7 @@ int IO_entered_BQ[MAX_PROCESSES];
             system_clock_tick(TIME_CONTEXT_SWITCH);
             printf("SC: %10d  nexit=%3d Process P%i READY->RUNNING\n", system_clock, nexit, RQ[0]);
             no_of_RQelements--;
-            system_clock_tick(RunProcessForTQ(time_quantum, popArrayRQ()));
+            system_clock_tick(RunProcessForTQ(time_quantum, popArrayInt(RQ)));
         }
         else if (RQ[0] == 0) //FIXME
         {
@@ -818,7 +812,7 @@ int IO_entered_BQ[MAX_PROCESSES];
                 system_clock_tick(TIME_CONTEXT_SWITCH);
                 printf("SC: %10d  nexit=%3d Process P%i READY->RUNNING\n", system_clock, nexit, RQ[0]);
                 no_of_RQelements--;
-                system_clock_tick(RunProcessForTQ(time_quantum, popArrayRQ()));
+                system_clock_tick(RunProcessForTQ(time_quantum, popArrayInt(RQ)));
             }
             else
             { // IO TICKER IS NEEDED
@@ -832,7 +826,7 @@ int IO_entered_BQ[MAX_PROCESSES];
 
             // NO OTHER PROCESS IS RUNNING so keep running
             printf("SC: %10d  nexit=%3d Process P%i CONTINUE RUNNING\n", system_clock, nexit, running);
-            system_clock_tick(RunProcessForTQ(time_quantum, popArrayRQ()));
+            system_clock_tick(RunProcessForTQ(time_quantum, popArrayInt(RQ)));
         }
     } while (nexit < no_of_process); //FIXME
 
