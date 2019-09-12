@@ -72,9 +72,6 @@ int process_end[MAX_PROCESSES];
 int process_rank[MAX_PROCESSES];
 int no_of_process = 0;
 
-int process_remaining_runtime[MAX_PROCESSES];
-int process_running_time[MAX_PROCESSES];
-
 //Parse File Events Detail Storage
 int event_start[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS];
 char event_device[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS][MAX_DEVICE_NAME];
@@ -84,18 +81,21 @@ int IO_runtime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; //in usec
 
 // Program Flow
 bool skip_IO_wait;
-int system_clock = 0;  
-int process_entered_RQ = 0; 
-int nexit = 0; 
-int no_of_RQelements = 0; 
+int system_clock = 0;
+int process_entered_RQ = 0;
+int nexit = 0;
+int no_of_RQelements = 0;
 int RQ[MAX_PROCESSES]; //holds the processes in ready queue
-int running = -1;      //holds the process in running state 
+int running = -1;      //holds the process in running state
 
 int BQ_Pindex[MAX_BLOCKED_PROCESSES];
 int BQ_Eindex[MAX_BLOCKED_PROCESSES];
 int BQ_RemainingTime[MAX_BLOCKED_PROCESSES];
 int no_of_BQelements = 0;
 int IO_entered_BQ[MAX_PROCESSES];
+
+int process_remaining_runtime[MAX_PROCESSES]; //
+int process_running_time[MAX_PROCESSES];      //
 
 //  ----------------------------------------------------------------------
 
@@ -104,29 +104,41 @@ int IO_entered_BQ[MAX_PROCESSES];
 #define HR "\n----------------------------------------------------------------------\n"
 
 //----------------------------------------------------------------------
+void duplicateArrayInt(int destination[], int source[], int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        destination[i] = source[i];
+    }
+}
 
 void program_flow_reset(void)
-{   
+{
     //RESETS ALL OF THE GLOBAL VARIABLES TO 0, ASIDE FROM THE 'STORAGE' VARIABLES
     //In preparation for next job mix
 
+    //Process Flow Array Resets (Block,Ready, General Processes)
     memset(BQ_Pindex, 0, sizeof(BQ_Pindex));
     memset(BQ_Eindex, 0, sizeof(BQ_Eindex));
     memset(BQ_RemainingTime, 0, sizeof(BQ_RemainingTime));
     memset(IO_entered_BQ, 0, sizeof(IO_entered_BQ));
+    memset(process_running_time, 0, sizeof(process_running_time));
+    memset(process_remaining_runtime, 0, sizeof(process_remaining_runtime));
+    duplicateArrayInt(process_remaining_runtime, process_end, no_of_process);
     memset(RQ, 0, sizeof(RQ));
-    //Initialization and Rest of Global Variables
+
+    //Process Flow Variable
     skip_IO_wait = false;
     system_clock = 0;
-    process_entered_RQ = 0; //is also used as the index of the process to be transferred to TQ
-    nexit = 0;              //number of processes exited
+    process_entered_RQ = 0;
+    nexit = 0;
     no_of_RQelements = 0;
     running = -1;
     no_of_BQelements = 0;
 }
 
 int myceil(double x)
-{ 
+{
     //besttq.c:(.text+0x73): undefined reference to `ceil'
     //Alternative to ceil
     int whole = x;
@@ -215,7 +227,7 @@ int sort_comp(const void *elem1, const void *elem2)
 }
 
 void createDevicePriority()
-{ 
+{
     //CREATES RANKING ORDER OF THE DEVICE PRIORITIES BASED ON TRANSFER RATE
 
     int device_rate_dup[MAX_DEVICES];
@@ -463,7 +475,7 @@ int popArrayInt(int arr[])
 int firstZeroRQ()
 {
     //FINDS THE INDEX OF THE FIRST ZERO IN RQ
-    
+
     int i = 0;
     while (RQ[i] != 0)
     {
@@ -635,7 +647,7 @@ void insertToBQ(int position, int process_index, int event_index, int remaining_
 void insertIOtoBQ(int process_index, int event_index)
 {
     //FINDS THE POSITION AT WHICH IO SHOULD BE PLACED IN BQ BY PRIORITY ORDER
-    
+
     int runtime = IO_runtime[process_index][event_index];
     int InsertDeviceIndex = getDeviceIndex(event_device[process_index][event_index]);
     int InsertDevicePriority = getPriorityDevice(InsertDeviceIndex);
@@ -741,7 +753,7 @@ int RunProcessForTQ(int TQ, int process_name)
     int timeBeforeIOStarts = seekNextIO(process_running_time[process_index], timeConsumed, process_index);
 
     if (timeBeforeIOStarts != -1)
-    { 
+    {
         // THERE IS AN IO TO BE RUN
         timeConsumed = timeBeforeIOStarts;
         DidBlocked = true;
@@ -793,7 +805,6 @@ void simulate_job_mix(int time_quantum)
 {
     program_flow_reset();
 
-
     // TODO Simulations
     printf("running simulate_job_mix( time_quantum = %i usecs )\n",
            time_quantum);
@@ -805,7 +816,7 @@ void simulate_job_mix(int time_quantum)
     running = -1;
 
     do
-    { 
+    {
         //LOOP UNTIL ALL PROCESS COMPLETE
         //  print_RQ();
         if ((running != RQ[0]) && ((running == -1) || (RQ[0] != 0)))
