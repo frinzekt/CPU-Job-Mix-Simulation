@@ -84,12 +84,12 @@ int IO_runtime[MAX_PROCESSES][MAX_EVENTS_PER_PROCESS]; //in usec
 
 // Program Flow
 bool skip_IO_wait;
-int system_clock = 0;
-int process_entered_RQ = 0;
-int nexit = 0;
-int no_of_RQelements = 0;
+int system_clock = 0;  
+int process_entered_RQ = 0; 
+int nexit = 0; 
+int no_of_RQelements = 0; 
 int RQ[MAX_PROCESSES]; //holds the processes in ready queue
-int running = -1;      //holds the process in running state
+int running = -1;      //holds the process in running state 
 
 int BQ_Pindex[MAX_BLOCKED_PROCESSES];
 int BQ_Eindex[MAX_BLOCKED_PROCESSES];
@@ -104,8 +104,30 @@ int IO_entered_BQ[MAX_PROCESSES];
 #define HR "\n----------------------------------------------------------------------\n"
 
 //----------------------------------------------------------------------
+
+void program_flow_reset(void)
+{   
+    //RESETS ALL OF THE GLOBAL VARIABLES TO 0, ASIDE FROM THE 'STORAGE' VARIABLES
+    //In preparation for next job mix
+
+    memset(BQ_Pindex, 0, sizeof(BQ_Pindex));
+    memset(BQ_Eindex, 0, sizeof(BQ_Eindex));
+    memset(BQ_RemainingTime, 0, sizeof(BQ_RemainingTime));
+    memset(IO_entered_BQ, 0, sizeof(IO_entered_BQ));
+    memset(RQ, 0, sizeof(RQ));
+    //Initialization and Rest of Global Variables
+    skip_IO_wait = false;
+    system_clock = 0;
+    process_entered_RQ = 0; //is also used as the index of the process to be transferred to TQ
+    nexit = 0;              //number of processes exited
+    no_of_RQelements = 0;
+    running = -1;
+    no_of_BQelements = 0;
+}
+
 int myceil(double x)
-{ //besttq.c:(.text+0x73): undefined reference to `ceil'
+{ 
+    //besttq.c:(.text+0x73): undefined reference to `ceil'
     //Alternative to ceil
     int whole = x;
     double decimal = x - whole;
@@ -113,6 +135,7 @@ int myceil(double x)
 
     return whole + add;
 }
+
 int runtime(int process_index, int event_index, int transfer_rate)
 {
     //CALCULATES THE AMOUNT OF TIME TAKEN (USEC) FOR FILE TRANSFER
@@ -192,7 +215,9 @@ int sort_comp(const void *elem1, const void *elem2)
 }
 
 void createDevicePriority()
-{ //Creates Ranking order of the Device Priorities based on Transfer Rate
+{ 
+    //CREATES RANKING ORDER OF THE DEVICE PRIORITIES BASED ON TRANSFER RATE
+
     int device_rate_dup[MAX_DEVICES];
 
     //DUPLICATE ARRAY
@@ -237,6 +262,7 @@ int getProcessIndexByName(int name)
 int getDeviceIndex(char device_name[])
 {
     //FIND INDEX OF DEVICE NAME
+
     for (int i = 0; i < no_of_devices; i++)
     {
         //COMPARE device name selected to list
@@ -267,17 +293,20 @@ int getDeviceTransferRate(char device_name[])
     printf("ERROR: DEVICE NOT FOUND\n");
     return -1;
 }
+
 void print_device_details(int index)
 {
     printf("Device No: %3d | Device Name: %20s | Transfer Rate: %10d Bytes/Second \n",
            index, device_names[index], transfer_rates[index]);
 }
+
 void print_event_details(int process_index, int event_index)
 {
     printf("Event Start: %10d | Device Name: %20s | Transfer Size: %10d | Runtime IO: %5d usec \n",
            event_index, event_device[process_index][event_index], transfer_size[process_index][event_index],
            IO_runtime[process_index][event_index]);
 }
+
 void print_RQ()
 {
     printf("    RQ:[");
@@ -297,6 +326,7 @@ void print_process_execution_order(void)
     }
     printf("]\n");
 }
+
 void print_device_priority(void)
 {
     printf("Device Priority: [");
@@ -417,7 +447,8 @@ void parse_tracefile(char program[], char tracefile[])
 
 int popArrayInt(int arr[])
 {
-    //Returns the first element and shifts all other element one move to the left
+    //RETURNS THE FIRST ELEMENT AND SHIFTS ALL OTHER ELEMENT ONE MOVE TO THE LEFT
+
     int popped = arr[0];
 
     int i = 0;
@@ -431,7 +462,8 @@ int popArrayInt(int arr[])
 
 int firstZeroRQ()
 {
-    //Finds the Index of the first zero in RQ
+    //FINDS THE INDEX OF THE FIRST ZERO IN RQ
+    
     int i = 0;
     while (RQ[i] != 0)
     {
@@ -442,7 +474,8 @@ int firstZeroRQ()
 
 void delBQFirst(int time)
 {
-    //Deletes the first element and shifts all other element one move to the left
+    //DELETES THE FIRST ELEMENT AND SHIFTS ALL OTHER ELEMENT ONE MOVE TO THE LEFT
+
     int i = 0;
     int name = process_name[BQ_Pindex[0] - 1];
 
@@ -463,6 +496,7 @@ void delBQFirst(int time)
     }
     no_of_BQelements--;
 }
+
 void print_BQ()
 {
     printf("#BQElement:%i\n", no_of_BQelements);
@@ -487,6 +521,7 @@ void print_BQ()
     }
     printf("]\n\n");
 }
+
 void SubtractTimeInBQ(int time)
 { //SUBTRACTS TIME FROM THE FIRST ELEMENT
     if (time >= 0)
@@ -542,6 +577,7 @@ void system_clock_tick(int time)
 void seekNextProcess(void)
 {
     //FINDS THE NEXT PROCESS TO BE PUT IN READY QUEUE (SKIPPING METHOD)
+
     int deviation = process_start[getProcessIndexByName(process_rank[process_entered_RQ])] - system_clock;
     system_clock_tick(deviation);
     RQ[0] = process_rank[process_entered_RQ];
@@ -550,6 +586,7 @@ void seekNextProcess(void)
     process_entered_RQ++;
     no_of_RQelements++;
 }
+
 void seekNextReadyProcess(int start, int expectedTimeConsume)
 {
     //FIND PROCESSES TO GO TO RQ IN STARTING AND ENDING TIME
@@ -594,9 +631,11 @@ void insertToBQ(int position, int process_index, int event_index, int remaining_
     BQ_Eindex[position] = event_index;
     BQ_RemainingTime[position] = remaining_time;
 }
+
 void insertIOtoBQ(int process_index, int event_index)
 {
-    //Finds the Position at which IO should be placed in BQ by priority order
+    //FINDS THE POSITION AT WHICH IO SHOULD BE PLACED IN BQ BY PRIORITY ORDER
+    
     int runtime = IO_runtime[process_index][event_index];
     int InsertDeviceIndex = getDeviceIndex(event_device[process_index][event_index]);
     int InsertDevicePriority = getPriorityDevice(InsertDeviceIndex);
@@ -672,6 +711,7 @@ int seekNextIO(int start, int expectedTimeConsume, int process_index)
         return -1;
     }
 }
+
 int RunProcessForTQ(int TQ, int process_name)
 {
     running = process_name;
@@ -701,7 +741,8 @@ int RunProcessForTQ(int TQ, int process_name)
     int timeBeforeIOStarts = seekNextIO(process_running_time[process_index], timeConsumed, process_index);
 
     if (timeBeforeIOStarts != -1)
-    { // THERE IS A IO TO BE RUN
+    { 
+        // THERE IS AN IO TO BE RUN
         timeConsumed = timeBeforeIOStarts;
         DidBlocked = true;
 
@@ -736,7 +777,7 @@ int RunProcessForTQ(int TQ, int process_name)
     }
     else
     {
-        //Process Not Exitting will go back To Queue
+        //Process Not Exiting will go back To Queue
         printf("SC: %10d  nexit=%3d Process P%i RUNNING -> READY\n-----------\n", system_clock + timeConsumed, nexit, running);
         no_of_RQelements++;
         RQ[firstZeroRQ()] = running;
@@ -750,30 +791,8 @@ int RunProcessForTQ(int TQ, int process_name)
 //  SIMULATE THE JOB-MIX FROM THE TRACEFILE, FOR THE GIVEN TIME-QUANTUM
 void simulate_job_mix(int time_quantum)
 {
+    program_flow_reset();
 
-    //Initialization and Rest of of Global Variables
-    skip_IO_wait = false;
-    system_clock = 0;
-    process_entered_RQ = 0; //is also used as the index of the process to be transferred to TQ
-    nexit = 0;              //number of processes exited
-    no_of_RQelements = 0;
-    running = -1;
-    /*
-    bool skip_IO_wait;
-int system_clock = 0;
-int process_entered_RQ = 0;
-int nexit = 0;
-int no_of_RQelements = 0;
-int RQ[MAX_PROCESSES]; //holds the processes in ready queue
-int running = -1;      //holds the process in running state
-
-int BQ_Pindex[MAX_BLOCKED_PROCESSES];
-int BQ_Eindex[MAX_BLOCKED_PROCESSES];
-int BQ_RemainingTime[MAX_BLOCKED_PROCESSES];
-int no_of_BQelements = 0;
-int IO_entered_BQ[MAX_PROCESSES];
-    */
-    memset(RQ, 0, sizeof(RQ)); // RESETS ITEM IN THE RQ FOR NEXT JOB MIX
 
     // TODO Simulations
     printf("running simulate_job_mix( time_quantum = %i usecs )\n",
@@ -786,7 +805,8 @@ int IO_entered_BQ[MAX_PROCESSES];
     running = -1;
 
     do
-    { //LOOP UNTIL ALL PROCESS COMPLETE
+    { 
+        //LOOP UNTIL ALL PROCESS COMPLETE
         //  print_RQ();
         if ((running != RQ[0]) && ((running == -1) || (RQ[0] != 0)))
         {
