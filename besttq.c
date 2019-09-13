@@ -599,10 +599,11 @@ void system_clock_tick(int time)
 void seekNextProcess(void)
 {
     //FINDS THE NEXT PROCESS TO BE PUT IN READY QUEUE (SKIPPING METHOD)
+    int process_index = getProcessIndexByName(process_rank[process_entered_RQ]);
 
-    int deviation = process_start[getProcessIndexByName(process_rank[process_entered_RQ])] - system_clock;
+    int deviation = process_start[process_index] - system_clock;
     system_clock_tick(deviation);
-    RQ[0] = process_rank[process_entered_RQ];
+    RQ[firstZeroRQ()] = process_rank[process_entered_RQ];
     printf("SC: %10d  nexit=%3d Process P%i NEW->READY (SKIP)\n", system_clock, nexit, RQ[0]);
 
     process_entered_RQ++;
