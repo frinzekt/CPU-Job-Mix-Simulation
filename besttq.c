@@ -416,7 +416,8 @@ void parse_tracefile(char program[], char tracefile[])
 
         else if (nwords == 1 && strcmp(word0, "reboot") == 0)
         {
-            printf("Total Devices: %d \n", no_of_devices); // NOTHING REALLY REQUIRED, DEVICE DEFINITIONS HAVE FINISHED
+            // NOTHING REALLY REQUIRED, DEVICE DEFINITIONS HAVE FINISHED
+            printf("Total Devices: %d \n", no_of_devices);
         }
 
         else if (nwords == 4 && strcmp(word0, "process") == 0)
@@ -452,7 +453,8 @@ void parse_tracefile(char program[], char tracefile[])
         {
             process_end[no_of_process] = atoi(word1);
             process_remaining_runtime[no_of_process] = process_end[no_of_process];
-            printf("End: %d \n", process_end[no_of_process]); //  PRESUMABLY THE LAST EVENT WE'LL SEE FOR THE CURRENT PROCESS
+            //  PRESUMABLY THE LAST EVENT WE'LL SEE FOR THE CURRENT PROCESS
+            printf("End: %d \n", process_end[no_of_process]);
         }
 
         else if (nwords == 1 && strcmp(word0, "}") == 0)
